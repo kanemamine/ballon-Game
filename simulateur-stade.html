@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Simulateur de position — Stade</title>
+<style>
+  :root {
+    --night: #0a0f0c;
+    --stand: #131a15;
+    --stand-edge: #1c2620;
+    --grass-a: #123b24;
+    --grass-b: #16482c;
+    --chalk: #edf5ec;
+    --muted: #7e9486;
+    --accent: #ff8a3d;
+    --accent-soft: rgba(255, 138, 61, 0.09);
+    --panel: #10160f;
+    --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-num: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--font-ui);
+    background: var(--night);
+    color: var(--chalk);
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  header {
+    padding: calc(env(safe-area-inset-top) + 12px) 18px 8px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  header h1 {
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  header h1 .dot { color: var(--accent); }
+  header .pitch-size {
+    font-family: var(--font-num);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+
+  .field-wrap {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 8px;
+  }
+  svg { height: 100%; max-width: 100%; display: block; touch-action: none; }
+
+  .panel {
+    background: linear-gradient(to top, var(--panel), rgba(16, 22, 15, 0.92));
+    border-top: 1px solid var(--stand-edge);
+    padding: 12px 16px calc(env(safe-area-inset-bottom) + 14px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .chips {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip {
+    flex: 0 0 auto;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--stand-edge);
+    border-radius: 999px;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .chip[aria-pressed="true"] {
+    color: var(--night);
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .readout {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .readout .value {
+    font-family: var(--font-num);
+    font-variant-numeric: tabular-nums;
+    font-size: 44px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--chalk);
+  }
+  .readout .unit {
+    font-family: var(--font-num);
+    font-size: 18px;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .readout .to {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.35;
+    margin-left: auto;
+    text-align: right;
+    max-width: 46%;
+  }
+
+  .slider-row { display: flex; flex-direction: column; gap: 6px; }
+  .slider-row .lbl {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .slider-row .lbl b {
+    font-family: var(--font-num);
+    font-variant-numeric: tabular-nums;
+    font-size: 14px;
+    color: var(--accent);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 28px;
+    background: transparent;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(to right, var(--accent) var(--fill, 30%), var(--stand-edge) var(--fill, 30%));
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 3px solid var(--night);
+    box-shadow: 0 0 0 1px var(--accent), 0 2px 8px rgba(0,0,0,0.5);
+    margin-top: -10px;
+  }
+  input[type="range"]::-moz-range-track {
+    height: 4px; border-radius: 2px; background: var(--stand-edge);
+  }
+  input[type="range"]::-moz-range-progress {
+    height: 4px; border-radius: 2px; background: var(--accent);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--accent); border: 3px solid var(--night);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  input[type="range"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
+
+  .hint {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  @keyframes pulse {
+    0%   { r: 1.1; opacity: 0.9; }
+    70%  { r: 3.4; opacity: 0; }
+    100% { r: 3.4; opacity: 0; }
+  }
+  .ref-pulse { animation: pulse 2.2s ease-out infinite; }
+  @media (prefers-reduced-motion: reduce) {
+    .ref-pulse { animation: none; opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Position<span class="dot">·</span>Stade</h1>
+  <span class="pitch-size">105 × 68 m</span>
+</header>
+
+<div class="field-wrap">
+  <svg id="field" viewBox="-9 -11 86 128" role="img"
+       aria-label="Vue du terrain de football avec point de référence, anneau de distance et marqueur déplaçable">
+    <defs>
+      <pattern id="mow" width="68" height="15" patternUnits="userSpaceOnUse">
+        <rect width="68" height="7.5" fill="var(--grass-a)"/>
+        <rect y="7.5" width="68" height="7.5" fill="var(--grass-b)"/>
+      </pattern>
+      <radialGradient id="flood" cx="50%" cy="0%" r="90%">
+        <stop offset="0%" stop-color="rgba(237,245,236,0.10)"/>
+        <stop offset="55%" stop-color="rgba(237,245,236,0.03)"/>
+        <stop offset="100%" stop-color="rgba(237,245,236,0)"/>
+      </radialGradient>
+      <clipPath id="scene"><rect x="-9" y="-11" width="86" height="128" rx="4"/></clipPath>
+    </defs>
+
+    <g clip-path="url(#scene)">
+      <!-- tribunes -->
+      <rect x="-9" y="-11" width="86" height="128" rx="4" fill="var(--stand)"/>
+      <rect x="-6.5" y="-8" width="81" height="122" rx="2.5" fill="none"
+            stroke="var(--stand-edge)" stroke-width="0.5"/>
+      <!-- pelouse -->
+      <rect x="-4" y="-5.5" width="76" height="117" fill="url(#mow)"/>
+      <rect x="-4" y="-5.5" width="76" height="117" fill="url(#flood)"/>
+
+      <!-- tracés craie -->
+      <g fill="none" stroke="var(--chalk)" stroke-width="0.35" stroke-opacity="0.85">
+        <rect x="0" y="0" width="68" height="105"/>
+        <line x1="0" y1="52.5" x2="68" y2="52.5"/>
+        <circle cx="34" cy="52.5" r="9.15"/>
+        <!-- surfaces bas -->
+        <path d="M 13.84 105 V 88.5 H 54.16 V 105"/>
+        <path d="M 24.84 105 V 99.5 H 43.16 V 105"/>
+        <path d="M 26.69 88.5 A 9.15 9.15 0 0 1 41.31 88.5"/>
+        <!-- surfaces haut -->
+        <path d="M 13.84 0 V 16.5 H 54.16 V 0"/>
+        <path d="M 24.84 0 V 5.5 H 43.16 V 0"/>
+        <path d="M 26.69 16.5 A 9.15 9.15 0 0 0 41.31 16.5"/>
+        <!-- corners -->
+        <path d="M 0 104 A 1 1 0 0 1 1 105"/>
+        <path d="M 67 105 A 1 1 0 0 1 68 104"/>
+        <path d="M 0 1 A 1 1 0 0 0 1 0"/>
+        <path d="M 67 0 A 1 1 0 0 0 68 1"/>
+        <!-- buts -->
+        <rect x="30.34" y="105" width="7.32" height="2.4" stroke-opacity="1"/>
+        <rect x="30.34" y="-2.4" width="7.32" height="2.4" stroke-opacity="1"/>
+      </g>
+      <!-- points fixes -->
+      <g fill="var(--chalk)" fill-opacity="0.85">
+        <circle cx="34" cy="52.5" r="0.45"/>
+        <circle cx="34" cy="94" r="0.45"/>
+        <circle cx="34" cy="11" r="0.45"/>
+      </g>
+
+      <!-- anneau de distance -->
+      <circle id="ring" cx="30.34" cy="105" r="29.9" fill="var(--accent-soft)"
+              stroke="var(--accent)" stroke-width="0.45" stroke-dasharray="1.6 1.1"/>
+
+      <!-- point de référence -->
+      <g id="refG">
+        <circle id="refPulse" class="ref-pulse" cx="30.34" cy="105" r="1.1"
+                fill="none" stroke="var(--chalk)" stroke-width="0.3"/>
+        <circle id="refDot" cx="30.34" cy="105" r="1" fill="var(--chalk)"
+                stroke="var(--night)" stroke-width="0.35"/>
+        <text id="refLbl" x="30.34" y="108.6" font-size="2.6" font-weight="700"
+              letter-spacing="0.3" text-anchor="middle" fill="var(--chalk)"
+              style="paint-order: stroke; stroke: var(--stand); stroke-width: 0.9;
+                     font-family: var(--font-ui); text-transform: uppercase;">Lucarne</text>
+      </g>
+
+      <!-- mètre ruban -->
+      <line id="tape" x1="30.34" y1="105" x2="32.4" y2="75.2"
+            stroke="var(--accent)" stroke-width="0.35" stroke-dasharray="1 1"/>
+      <text id="tapeLbl" x="34.5" y="90" font-size="3.4" font-weight="700"
+            text-anchor="middle" fill="var(--chalk)"
+            style="paint-order: stroke; stroke: var(--night); stroke-width: 1.1;
+                   font-family: var(--font-num); font-variant-numeric: tabular-nums;">30,0 m</text>
+
+      <!-- marqueur joueur -->
+      <g id="marker">
+        <circle id="mHalo" cx="32.4" cy="75.2" r="4.5" fill="var(--accent)" fill-opacity="0.14"/>
+        <circle id="mDot" cx="32.4" cy="75.2" r="1.5" fill="var(--accent)"
+                stroke="var(--night)" stroke-width="0.4"/>
+      </g>
+    </g>
+  </svg>
+</div>
+
+<div class="panel">
+  <div class="chips" id="chips" role="group" aria-label="Point de référence">
+    <button class="chip" data-ref="lucarne" aria-pressed="true">Lucarne</button>
+    <button class="chip" data-ref="penalty" aria-pressed="false">Penalty</button>
+    <button class="chip" data-ref="corner" aria-pressed="false">Corner</button>
+    <button class="chip" data-ref="but" aria-pressed="false">But</button>
+    <button class="chip" data-ref="centre" aria-pressed="false">Centre</button>
+  </div>
+
+  <div class="readout">
+    <span class="value" id="distVal">30,0</span>
+    <span class="unit">m</span>
+    <span class="to" id="distTo">de la lucarne — angle supérieur du but (hauteur 2,44 m)</span>
+  </div>
+
+  <div class="slider-row">
+    <span class="lbl" id="radiusLbl">Anneau de distance <b id="radiusVal">30 m</b></span>
+    <input type="range" id="radius" min="2" max="100" step="1" value="30"
+           aria-labelledby="radiusLbl">
+  </div>
+
+  <p class="hint">Touchez ou faites glisser le marqueur orange sur le terrain pour lire sa
+  distance au point de référence. L’anneau pointillé montre tous les points situés à la
+  distance choisie.</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var REFS = {
+    lucarne: { x: 30.34, y: 105, h: 2.44, name: "Lucarne",
+               desc: "de la lucarne — angle supérieur du but (hauteur 2,44 m)" },
+    penalty: { x: 34, y: 94, h: 0, name: "Penalty",
+               desc: "du point de penalty (à 11 m du but)" },
+    corner:  { x: 0, y: 105, h: 0, name: "Corner",
+               desc: "du poteau de corner" },
+    but:     { x: 34, y: 105, h: 0, name: "But",
+               desc: "du milieu de la ligne de but" },
+    centre:  { x: 34, y: 52.5, h: 0, name: "Centre",
+               desc: "du rond central" }
+  };
+
+  var svg = document.getElementById("field");
+  var ring = document.getElementById("ring");
+  var refDot = document.getElementById("refDot");
+  var refPulse = document.getElementById("refPulse");
+  var refLbl = document.getElementById("refLbl");
+  var tape = document.getElementById("tape");
+  var tapeLbl = document.getElementById("tapeLbl");
+  var mDot = document.getElementById("mDot");
+  var mHalo = document.getElementById("mHalo");
+  var distVal = document.getElementById("distVal");
+  var distTo = document.getElementById("distTo");
+  var radius = document.getElementById("radius");
+  var radiusVal = document.getElementById("radiusVal");
+  var chips = document.getElementById("chips");
+
+  var state = {
+    ref: "lucarne",
+    marker: { x: 32.4, y: 75.2 },
+    radius: 30
+  };
+
+  function fmt(n) {
+    return n.toFixed(1).replace(".", ",");
+  }
+
+  function groundRadius(r, h) {
+    return r > h ? Math.sqrt(r * r - h * h) : 0;
+  }
+
+  function render() {
+    var ref = REFS[state.ref];
+    var m = state.marker;
+    var dh = Math.hypot(m.x - ref.x, m.y - ref.y);
+    var d3 = Math.hypot(dh, ref.h);
+
+    refDot.setAttribute("cx", ref.x); refDot.setAttribute("cy", ref.y);
+    refPulse.setAttribute("cx", ref.x); refPulse.setAttribute("cy", ref.y);
+    refLbl.setAttribute("x", ref.x);
+    refLbl.setAttribute("y", ref.y > 100 ? ref.y + 3.6 : ref.y - 2.2);
+    refLbl.textContent = ref.name;
+
+    var rg = groundRadius(state.radius, ref.h);
+    ring.setAttribute("cx", ref.x); ring.setAttribute("cy", ref.y);
+    ring.setAttribute("r", rg);
+    ring.style.display = rg > 0 ? "" : "none";
+
+    tape.setAttribute("x1", ref.x); tape.setAttribute("y1", ref.y);
+    tape.setAttribute("x2", m.x);  tape.setAttribute("y2", m.y);
+
+    // étiquette à mi-chemin, décalée perpendiculairement au ruban
+    var mx = (ref.x + m.x) / 2, my = (ref.y + m.y) / 2;
+    var len = Math.max(dh, 0.001);
+    var nx = -(m.y - ref.y) / len, ny = (m.x - ref.x) / len;
+    if (mx + nx * 4 > 68) { nx = -nx; ny = -ny; }
+    tapeLbl.setAttribute("x", Math.min(Math.max(mx + nx * 4, -6), 74));
+    tapeLbl.setAttribute("y", Math.min(Math.max(my + ny * 4, -7), 112));
+    tapeLbl.textContent = fmt(d3) + " m";
+
+    mDot.setAttribute("cx", m.x); mDot.setAttribute("cy", m.y);
+    mHalo.setAttribute("cx", m.x); mHalo.setAttribute("cy", m.y);
+
+    distVal.textContent = fmt(d3);
+    distTo.textContent = ref.desc;
+    radiusVal.textContent = state.radius + " m";
+    var pct = ((state.radius - 2) / 98) * 100;
+    radius.style.setProperty("--fill", pct + "%");
+  }
+
+  function svgPoint(evt) {
+    var pt = svg.createSVGPoint();
+    pt.x = evt.clientX; pt.y = evt.clientY;
+    var p = pt.matrixTransform(svg.getScreenCTM().inverse());
+    return {
+      x: Math.min(Math.max(p.x, -6), 74),
+      y: Math.min(Math.max(p.y, -7), 111)
+    };
+  }
+
+  var dragging = false;
+  svg.addEventListener("pointerdown", function (evt) {
+    dragging = true;
+    svg.setPointerCapture(evt.pointerId);
+    state.marker = svgPoint(evt);
+    render();
+    evt.preventDefault();
+  });
+  svg.addEventListener("pointermove", function (evt) {
+    if (!dragging) return;
+    state.marker = svgPoint(evt);
+    render();
+  });
+  svg.addEventListener("pointerup", function () { dragging = false; });
+  svg.addEventListener("pointercancel", function () { dragging = false; });
+
+  radius.addEventListener("input", function () {
+    state.radius = Number(radius.value);
+    render();
+  });
+
+  chips.addEventListener("click", function (evt) {
+    var btn = evt.target.closest(".chip");
+    if (!btn) return;
+    state.ref = btn.dataset.ref;
+    chips.querySelectorAll(".chip").forEach(function (c) {
+      c.setAttribute("aria-pressed", c === btn ? "true" : "false");
+    });
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

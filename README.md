@@ -21,3 +21,13 @@ Pour exécuter ce jeu localement :
 2. Ouvrez `index.html` dans votre navigateur
 
 Enjoy!
+
+## Simulateur de position — Stade
+
+Un simulateur mobile pour visualiser une position sur un terrain de football :
+choisissez un point de référence (lucarne, penalty, corner, but, centre),
+réglez un rayon (ex. « à 30 m de la lucarne ») et déplacez le marqueur pour
+lire la distance exacte. La lucarne est calculée en 3D (hauteur 2,44 m).
+
+Ouvrez [`simulateur-stade.html`](simulateur-stade.html) dans votre navigateur,
+ou en ligne via [GitHub Pages](https://kanemamine.github.io/Infinite-Bridge-Game/simulateur-stade.html).
